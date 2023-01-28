@@ -1,8 +1,8 @@
 const express = require("express");
-const contacts = require("../controllers/contact.controller");
+const meet = require("../controllers/meet.controller");
 
 const router = express.Router();
 
-router.route("/").get(contacts.findAll);
+router.route("/meet").post(meet.create);
 
 module.exports = router;
