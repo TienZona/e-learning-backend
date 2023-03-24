@@ -92,7 +92,26 @@ class CoursesController {
 
   async getMember(req, res, next) {
     try {
-      const respone = await Course.findOne({ id: req.params.id }, ['member', 'author']);
+      const respone = await Course.findOne({ id: req.params.id }, [
+        "member",
+        "author",
+      ]);
+      res.send(respone);
+    } catch (err) {
+      res.status(501);
+      console.log(err);
+    }
+  }
+
+  async getStudyingClass(req, res, next) {
+    try {
+      const userEmail = req.params.id;
+
+      const respone = await Course.find({
+        "member.email": req.params.id,
+        deleted: false,
+      });
+      
       res.send(respone);
     } catch (err) {
       res.status(501);
