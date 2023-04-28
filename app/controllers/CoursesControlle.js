@@ -5,7 +5,7 @@ class CoursesController {
 
   async findAll(req, res, next) {
     try {
-      const results = await Course.find({ deleted: false });
+      const results = await Course.find({ deleted: false }).sort({ created_at: -1 }); ;
       res.send(results);
     } catch (err) {
       res.send(err);
@@ -18,12 +18,24 @@ class CoursesController {
       const results = await Course.findOne({
         id: req.params.id,
         deleted: false,
-      });
+      }).sort({ created_at: -1 });
       res.send(results);
     } catch (err) {
       res.send(err);
       console.log(err);
     }
+  }
+
+  async search(req, res, next) {
+    const courses = await Course.find({
+      $or: [
+        { category: { $regex: req.params.text } },
+        { name: { $regex: req.params.text } },
+        { content: { $regex: req.params.text } }
+      ],
+      deleted: false,
+    }).sort({ created_at: -1 });
+    res.send(courses);
   }
 
   async findAuthor(req, res, next) {
@@ -72,7 +84,6 @@ class CoursesController {
         { id: req.params.id },
         req.body.course
       );
-      console.log(req.body.course);
       res.send(respone);
     } catch (err) {
       res.status(501);
@@ -87,6 +98,18 @@ class CoursesController {
     } catch (err) {
       res.status(501);
       console.log(err);
+    }
+  }
+
+  async getClass(id_class) {
+    try {
+      const data = await Course.findOne({
+        id: id_class,
+      });
+      return data;
+    } catch (err) {
+      console.log(err);
+      return false;
     }
   }
 
@@ -110,8 +133,8 @@ class CoursesController {
       const respone = await Course.find({
         "member.email": req.params.id,
         deleted: false,
-      });
-      
+      }).sort({ created_at: -1 });
+
       res.send(respone);
     } catch (err) {
       res.status(501);

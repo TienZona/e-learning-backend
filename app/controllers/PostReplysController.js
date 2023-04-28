@@ -21,7 +21,9 @@ class PostReplyController {
       const reply = new PostReply(req.body);
       await reply
         .save()
-        .then((respone) => res.send(respone))
+        .then((respone) => {
+          res.send(respone);
+        })
         .catch((err) => res.send(err));
     } catch (err) {
       res.status(501);

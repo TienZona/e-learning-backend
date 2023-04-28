@@ -5,9 +5,9 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const config = require("./app/config");
 const { default: mongoose } = require("mongoose");
-
+const uuid = require("uuid");
 const server = http.createServer(app);
-
+const timer = require("./timer.auto");
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:8888",
@@ -22,11 +22,15 @@ async function startServer() {
         useNewUrlParser: true,
         useUnifiedTopology: true,
       })
-      .then(() => console.log("Connected to the database!"))
+      .then(() => {
+        console.log("Connected to the database!");
+        // auto timer
+        timer();
+      })
       .catch((err) => console.error("Database conection error"));
 
     const PORT = config.app.port;
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
@@ -36,32 +40,85 @@ async function startServer() {
 }
 
 // socket io
-io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`);
+const MeetController = require("./app/controllers/MeetController");
+const SurveyController = require("./app/controllers/SurveyController");
+const QuestionController = require("./app/controllers/QuestionController");
 
+io.on("connection", (socket) => {
   // when user join in room
+
   socket.on("join_room", (roomId, user) => {
     // user join in room
-    socket.join(roomId);
-    joinRoom(roomId, user, socket.id);
     console.log(`User with ID: ${socket.id} joined room: ${roomId}`);
+    user.userID = socket.id;
 
-    // receive user join in rom
-    socket.emit("receive_user_join", selectRoom(roomId));
-    socket.to(roomId).emit("receive_user_join", selectRoom(roomId));
+    socket.join(roomId);
+
+    // create meet
+    MeetController.joinRoom({ id_room: roomId, user: user }).then((room) => {
+      const members = room.members.filter((mem) => !mem.outTime);
+      console.log(members);
+      socket.to(roomId).emit("other-user-join", members);
+    });
+
+    socket.on("list-user", (list) => {
+      socket.to(roomId).emit("list-user", list);
+    });
+
+    joinRoom(roomId, user, socket.id);
 
     // send message handle
     socket.on("send_message", (data) => {
-      addData(data);
-      console.log(data.author + " send message room " + data.room);
-      socket.to(data.room).emit("receive_message", selectRoom(roomId), data);
+      MeetController.chat(data).then((res) => {
+        if (res) {
+          io.to(roomId).emit("receive_message", data);
+        }
+      });
     });
 
+    // survey
+    socket.on("survey", (data) => {
+      socket.to(roomId).emit("new-survey", data);
+    });
+
+    // question
+    socket.on("question", (data) => {
+      socket.to(roomId).emit("new-question", data);
+    });
+
+    socket.on("new-answer", (_id) => {
+      SurveyController.getSurvey(_id).then((survey) => {
+        socket.broadcast.to(roomId).emit("new-vote", survey);
+      });
+    });
+
+    socket.on("vote", (vote) => {
+      SurveyController.vote(vote).then((res) => {
+        if (res.acknowledged) {
+          SurveyController.getSurvey(vote._id).then((survey) => {
+            socket.to(roomId).emit("new-vote", survey);
+          });
+        }
+      });
+    });
+
+    socket.on("vote_answer", (vote) => {
+      QuestionController.vote(vote).then((res) => {
+        QuestionController.getQuestion(vote._id).then((question) => {
+          socket.to(roomId).emit("new-question", question);
+        });
+      });
+    });
     // handle user disconnected
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (data) => {
       removeUSer(roomId, socket.id);
-      console.log("User Disconnected", socket.id);
-      socket.to(roomId).emit("receive_user_disconnected", selectRoom(roomId));
+      MeetController.outRoom({ id_room: roomId, id: socket.id }).then(
+        (room) => {
+          console.log("User Disconnected", socket.id);
+          socket.to(roomId).emit("other-user-disconnected", socket.id);
+        }
+      );
+      // console.log(data)
     });
   });
 });
@@ -90,7 +147,6 @@ const joinRoom = (id, user, socketID) => {
       return item;
     });
   } else {
-    console.log("add new room");
     const newRoom = {
       id,
       users: [user],
