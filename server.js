@@ -92,6 +92,14 @@ io.on("connection", (socket) => {
       });
     });
 
+    socket.on("hands-up", (user) => {
+      socket.to(roomId).emit("user-hands-up", user);
+    });
+
+    socket.on("user-stop-stream", (peerID) => {
+      socket.to(roomId).emit("user-stop-stream", peerID)
+    })
+
     socket.on("vote", (vote) => {
       SurveyController.vote(vote).then((res) => {
         if (res.acknowledged) {

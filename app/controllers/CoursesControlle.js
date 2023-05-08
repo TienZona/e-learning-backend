@@ -5,7 +5,9 @@ class CoursesController {
 
   async findAll(req, res, next) {
     try {
-      const results = await Course.find({ deleted: false }).sort({ created_at: -1 }); ;
+      const results = await Course.find({ deleted: false }).sort({
+        created_at: -1,
+      });
       res.send(results);
     } catch (err) {
       res.send(err);
@@ -31,7 +33,8 @@ class CoursesController {
       $or: [
         { category: { $regex: req.params.text } },
         { name: { $regex: req.params.text } },
-        { content: { $regex: req.params.text } }
+        { content: { $regex: req.params.text } },
+        { id: { $regex: req.params.text } },
       ],
       deleted: false,
     }).sort({ created_at: -1 });
